@@ -1,122 +1,117 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useRef } from "react";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcript, setTranscript] = useState(""); // Placeholder for Day 4
+  const [audioUrl, setAudioUrl] = useState(null);
+
+  // useRef keeps track of the recorder and audio data without re-rendering the UI
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  const startRecording = async () => {
+    try {
+      // 1. Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // 2. Initialize the MediaRecorder
+      mediaRecorderRef.current = new MediaRecorder(stream);
+
+      // 3. Capture audio chunks as they come in
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      // 4. When recording stops, package the chunks into a single Blob
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+
+        // Create a temporary local URL so we can play it back in the UI
+        const url = URL.createObjectURL(audioBlob);
+        setAudioUrl(url);
+
+        // Clear the chunks for the next recording session
+        audioChunksRef.current = [];
+      };
+
+      // Start the actual recording
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      alert("Microphone access is required to use this application.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      // Stop the recorder
+      mediaRecorderRef.current.stop();
+
+      // Stop all microphone tracks to turn off the red recording dot in the browser tab
+      mediaRecorderRef.current.stream
+        .getTracks()
+        .forEach((track) => track.stop());
+
+      setIsRecording(false);
+    }
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4">
+      {/* Header */}
+      <div className="max-w-3xl w-full bg-white rounded-xl shadow-md p-6 mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 text-center mb-2">
+          Speech-to-Text Transcriber
+        </h1>
+        <p className="text-center text-gray-500 mb-6">
+          Record your voice and generate real-time transcripts.
+        </p>
 
-      <div className="ticks"></div>
+        {/* Controls */}
+        <div className="flex flex-col items-center gap-6">
+          <button
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`w-40 h-40 rounded-full flex items-center justify-center text-white font-bold text-xl transition-all shadow-lg hover:scale-105 ${
+              isRecording
+                ? "bg-red-500 animate-pulse hover:bg-red-600"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
+          >
+            {isRecording ? "Stop" : "Start"}
+          </button>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+          {/* Local Audio Playback Verification */}
+          {audioUrl && !isRecording && (
+            <div className="mt-4 flex flex-col items-center">
+              <p className="text-sm text-gray-500 mb-2">
+                Recorded Audio (Local Blob):
+              </p>
+              <audio src={audioUrl} controls className="outline-none" />
+            </div>
+          )}
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      {/* Transcript Area */}
+      <div className="max-w-3xl w-full bg-white rounded-xl shadow-md p-6 h-64 flex flex-col">
+        <h2 className="text-lg font-semibold text-gray-700 mb-2">Transcript</h2>
+        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-y-auto">
+          {transcript ? (
+            <p className="text-gray-800">{transcript}</p>
+          ) : (
+            <p className="text-gray-400 italic">
+              Your transcribed text will appear here...
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default App;
