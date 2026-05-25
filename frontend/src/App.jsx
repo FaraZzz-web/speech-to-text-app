@@ -2,10 +2,9 @@ import { useState, useRef } from "react";
 
 function App() {
   const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState(""); // Placeholder for Day 4
+  const [transcript, setTranscript] = useState("");
   const [audioUrl, setAudioUrl] = useState(null);
 
-  // useRef keeps track of the recorder and audio data without re-rendering the UI
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
@@ -24,8 +23,8 @@ function App() {
         }
       };
 
-      // 4. When recording stops, package the chunks into a single Blob
-      mediaRecorderRef.current.onstop = () => {
+      // 4. When recording stops, package the chunks and send to backend
+      mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, {
           type: "audio/webm",
         });
@@ -36,11 +35,43 @@ function App() {
 
         // Clear the chunks for the next recording session
         audioChunksRef.current = [];
+
+        // --- NEW (Day 3): Send the file to the FastAPI backend ---
+        setTranscript("Uploading to server..."); // Temporary loading state
+
+        const formData = new FormData();
+        // Append the blob as a file named "recording.webm"
+        formData.append("file", audioBlob, "recording.webm");
+
+        try {
+          const response = await fetch("http://localhost:8000/transcribe", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          console.log("Server response:", data);
+
+          // Show the success message in the UI for now (until we add real STT tomorrow)
+          setTranscript(
+            `Success! The backend securely received: ${data.filename}`,
+          );
+        } catch (error) {
+          console.error("Error uploading file:", error);
+          setTranscript(
+            "Error: Could not connect to the backend server. Is FastAPI running?",
+          );
+        }
       };
 
       // Start the actual recording
       mediaRecorderRef.current.start();
       setIsRecording(true);
+      setTranscript("Listening..."); // UI feedback while recording
     } catch (error) {
       console.error("Error accessing microphone:", error);
       alert("Microphone access is required to use this application.");
