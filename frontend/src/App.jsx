@@ -42,7 +42,6 @@ function App() {
         const formData = new FormData();
         // Append the blob as a file named "recording.webm"
         formData.append("file", audioBlob, "recording.webm");
-
         try {
           const response = await fetch("http://localhost:8000/transcribe", {
             method: "POST",
@@ -56,15 +55,15 @@ function App() {
           const data = await response.json();
           console.log("Server response:", data);
 
-          // Show the success message in the UI for now (until we add real STT tomorrow)
-          setTranscript(
-            `Success! The backend securely received: ${data.filename}`,
-          );
+          // --- NEW (Day 4): Display the actual text! ---
+          if (data.transcript) {
+            setTranscript(data.transcript);
+          } else {
+            setTranscript("Audio processed, but no words were detected.");
+          }
         } catch (error) {
           console.error("Error uploading file:", error);
-          setTranscript(
-            "Error: Could not connect to the backend server. Is FastAPI running?",
-          );
+          setTranscript("Error: Could not connect to the backend server.");
         }
       };
 
