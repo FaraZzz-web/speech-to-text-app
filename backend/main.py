@@ -1,12 +1,19 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import os
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
 
-# Load the secret key from your .env file
+# Import our new database files
+import models
+from database import engine, SessionLocal
+
 load_dotenv()
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
+
+# This tells SQLAlchemy to create the tables in Supabase if they don't exist yet!
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -18,17 +25,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Dependency to get the DB session for each request
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 @app.post("/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)):
-    # 1. Safety check: Ensure the API key loaded correctly
+async def transcribe_audio(file: UploadFile = File(...), db: Session = Depends(get_db)):
     if not DEEPGRAM_API_KEY:
-        raise HTTPException(status_code=500, detail="Deepgram API key is missing. Check your .env file.")
+        raise HTTPException(status_code=500, detail="Deepgram API key is missing.")
 
     try:
-        # 2. Read the audio file directly into memory
         audio_data = await file.read()
-
-        # 3. Prepare the Deepgram API request
         url = "https://api.deepgram.com/v1/listen"
         
         headers = {
@@ -36,26 +47,28 @@ async def transcribe_audio(file: UploadFile = File(...)):
             "Content-Type": file.content_type or "audio/webm",
         }
         
-        # We use 'nova-2' as it is their fastest, most accurate model
         params = {
             "model": "nova-2",
             "smart_format": "true" 
         }
 
-        # 4. Send the audio to Deepgram
         response = requests.post(url, headers=headers, params=params, data=audio_data)
 
-        # 5. Parse the result and send the transcript back to React
         if response.status_code == 200:
             result = response.json()
-            # Navigate through Deepgram's JSON response to find the actual text string
-            transcript = result["results"]["channels"][0]["alternatives"][0]["transcript"]
+            transcript_text = result["results"]["channels"][0]["alternatives"][0]["transcript"]
             
-            return {"status": "success", "transcript": transcript}
+            # --- NEW (Day 5): Save to Database ---
+            if transcript_text:
+                new_transcript = models.Transcript(text=transcript_text)
+                db.add(new_transcript)
+                db.commit()
+                db.refresh(new_transcript)
+            
+            return {"status": "success", "transcript": transcript_text}
         else:
-            print("Deepgram Error:", response.text)
-            raise HTTPException(status_code=response.status_code, detail="Failed to transcribe audio.")
+            raise HTTPException(status_code=response.status_code, detail="Failed to transcribe.")
             
     except Exception as e:
         print("Server Error:", e)
-        raise HTTPException(status_code=500, detail="Internal server error during transcription.")
+        raise HTTPException(status_code=500, detail="Internal server error.")
