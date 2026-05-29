@@ -1,9 +1,30 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [audioUrl, setAudioUrl] = useState(null);
+
+  // --- NEW (Day 6): History State ---
+  const [history, setHistory] = useState([]);
+
+  // Fetch history when the app loads
+  const fetchHistory = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/history");
+      const result = await response.json();
+      if (result.status === "success") {
+        setHistory(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching history:", error);
+    }
+  };
+
+  // Run the fetch function once when the component mounts
+  useEffect(() => {
+    fetchHistory();
+  }, []);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -58,6 +79,7 @@ function App() {
           // --- NEW (Day 4): Display the actual text! ---
           if (data.transcript) {
             setTranscript(data.transcript);
+            fetchHistory(); // <--- ADD THIS LINE to refresh the list automatically
           } else {
             setTranscript("Audio processed, but no words were detected.");
           }
@@ -137,6 +159,31 @@ function App() {
             <p className="text-gray-400 italic">
               Your transcribed text will appear here...
             </p>
+          )}
+        </div>
+      </div>
+      {/* --- NEW (Day 6): History Area --- */}
+      <div className="max-w-3xl w-full bg-white rounded-xl shadow-md p-6 mt-6">
+        <h2 className="text-lg font-semibold text-gray-700 mb-4">
+          Past Transcripts
+        </h2>
+        <div className="flex flex-col gap-3 max-h-96 overflow-y-auto pr-2">
+          {history.length === 0 ? (
+            <p className="text-gray-400 italic text-center">
+              No past transcripts found.
+            </p>
+          ) : (
+            history.map((item) => (
+              <div
+                key={item.id}
+                className="bg-gray-50 border border-gray-200 rounded-lg p-4"
+              >
+                <p className="text-gray-800">{item.text}</p>
+                <p className="text-xs text-gray-400 mt-2">
+                  {new Date(item.created_at).toLocaleString()}
+                </p>
+              </div>
+            ))
           )}
         </div>
       </div>

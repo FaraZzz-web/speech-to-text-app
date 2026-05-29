@@ -72,3 +72,14 @@ async def transcribe_audio(file: UploadFile = File(...), db: Session = Depends(g
     except Exception as e:
         print("Server Error:", e)
         raise HTTPException(status_code=500, detail="Internal server error.")
+    
+# --- NEW (Day 6): Fetch History Endpoint ---
+@app.get("/history")
+def get_history(db: Session = Depends(get_db)):
+    try:
+        # Query the database for all transcripts, ordered by newest first
+        transcripts = db.query(models.Transcript).order_by(models.Transcript.created_at.desc()).all()
+        return {"status": "success", "data": transcripts}
+    except Exception as e:
+        print("Database Error:", e)
+        raise HTTPException(status_code=500, detail="Could not fetch history from the database.")
