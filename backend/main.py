@@ -83,3 +83,4 @@ def get_history(db: Session = Depends(get_db)):
     except Exception as e:
         print("Database Error:", e)
         raise HTTPException(status_code=500, detail="Could not fetch history from the database.")
+    

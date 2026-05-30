@@ -150,8 +150,22 @@ function App() {
       </div>
 
       {/* Transcript Area */}
+      {/* Transcript Area */}
       <div className="max-w-3xl w-full bg-white rounded-xl shadow-md p-6 h-64 flex flex-col">
-        <h2 className="text-lg font-semibold text-gray-700 mb-2">Transcript</h2>
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-lg font-semibold text-gray-700">Transcript</h2>
+          {transcript && (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(transcript);
+                alert("Copied to clipboard!");
+              }}
+              className="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 px-3 rounded transition-colors"
+            >
+              Copy Text
+            </button>
+          )}
+        </div>
         <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-y-auto">
           {transcript ? (
             <p className="text-gray-800">{transcript}</p>
